@@ -1,14 +1,14 @@
 # 🏎️ Furuta AI Mechanical Lab
 ### *Simulador Físico Mecatrónico Industrial & Laboratório Didático de Neuroevolução*
 
-[![CI/CD GitHub Pages](https://github.com/actions/workflows/deploy.yml/badge.svg)](https://github.com)
+[![CI/CD GitHub Pages](https://github.com/valbom13/furuta-ai-lab/actions/workflows/deploy.yml/badge.svg)](https://github.com/valbom13/furuta-ai-lab)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-r170-black.svg)](https://threejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF.svg)](https://vitejs.dev/)
 [![Tests](https://img.shields.io/badge/Vitest-33%2F33%20Passed-success.svg)](https://vitest.dev/)
 
-> **Live Demo Online**: `https://<seu-usuario>.github.io/<repositorio>/`  
-> *(Substitua pelo link gerado pelo GitHub Pages)*
+> **Live Demo Online**: [https://valbom13.github.io/furuta-ai-lab/](https://valbom13.github.io/furuta-ai-lab/)  
+> **Código Fonte**: [https://github.com/valbom13/furuta-ai-lab](https://github.com/valbom13/furuta-ai-lab)
 
 Um simulador científico e mecatrónico de alto rendimento executado a **100% no navegador (Client-Side)**. O projeto combina integração numérica de mecânica não-linear com treino evolutivo de redes neuronais em tempo real, atingindo mais de **70.000 passos físicos + inferência neural acoplados por segundo** via Web Workers.
 
