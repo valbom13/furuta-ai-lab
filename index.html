@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laboratório Didático de Redes Neuronais e Física Industrial | Pêndulo de Furuta</title>
+  <link rel="stylesheet" href="./src/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    <!-- Top Header Navigation -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">F</div>
+        <div>
+          <div class="brand-title">Furuta AI Mechanical Lab</div>
+        </div>
+        <span class="brand-badge">RK4 200Hz • Web Workers</span>
+      </div>
+
+      <div class="header-controls">
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <select id="system-selector" class="select-control" title="Selecionar Sistema Mecânico">
+            <option value="furuta">Pêndulo Rotativo de Furuta (Padrão)</option>
+            <option value="cartpole">Pêndulo Linear (Cart-Pole)</option>
+            <option value="crane">Ponte Rolante (Anti-Swing)</option>
+          </select>
+          <span class="info-badge" data-topic="system_selector" title="Clique para ver explicação teórica e exemplos">i</span>
+        </div>
+
+        <button id="btn-play-pause" class="btn btn-primary" title="Iniciar ou Pausar a Simulação">
+          <span id="play-icon">▶</span> <span id="play-text">Iniciar</span>
+        </button>
+
+        <button id="btn-step" class="btn" title="Avançar um único passo temporal">
+          ⏭ Passo
+        </button>
+
+        <button id="btn-reset" class="btn" title="Reiniciar Simulação e Estado Físico">
+          ↺ Reset
+        </button>
+
+        <div style="display: flex; align-items: center; gap: 6px; margin: 0 4px;">
+          <span style="font-size: 11px; color: var(--text-muted);">Velocidade:</span>
+          <input type="range" id="speed-slider" min="0.1" max="5.0" step="0.1" value="1.0" style="width: 70px; accent-color: var(--accent-cyan);">
+          <span id="speed-val" class="form-val" style="min-width: 32px;">1.0x</span>
+          <span class="info-badge" data-topic="sim_speed" title="Clique para ver explicação teórica e exemplos">i</span>
+        </div>
+
+        <button id="btn-turbo" class="btn" title="Modo Turbo: Executa física e evolução na velocidade máxima do CPU via Web Workers">
+          ⚡ Turbo <span class="info-badge" data-topic="turbo_mode" title="Clique para ver explicação teórica e exemplos">i</span>
+        </button>
+
+        <button id="btn-swarm" class="btn btn-active" title="Alternar entre ver o Enxame Fantasma de 100+ pêndulos ou apenas o Campeão">
+          👥 Enxame (100+) <span class="info-badge" data-topic="swarm_mode" title="Clique para ver explicação teórica e exemplos">i</span>
+        </button>
+
+        <button id="btn-export" class="btn" title="Exportar genoma do campeão em JSON">
+          ⤓ Exportar
+        </button>
+        <button id="btn-import" class="btn" title="Importar genoma de ficheiro JSON">
+          ⤒ Importar
+        </button>
+        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+      </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+      <!-- Left Sidebar -->
+      <aside class="sidebar">
+        <!-- Sidebar Navigation Tabs -->
+        <nav class="sidebar-tabs">
+          <button class="tab-btn active" data-tab="tab-neural">🧠 Rede Neuronal</button>
+          <button class="tab-btn" data-tab="tab-evolution">🧬 Evolução</button>
+          <button class="tab-btn" data-tab="tab-physics">⚙️ Física Lab</button>
+          <button class="tab-btn" data-tab="tab-missions">🎯 Missões</button>
+        </nav>
+
+        <!-- Tab 1: Neural Network -->
+        <div id="tab-neural" class="tab-content active">
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Topologia & Presets <span class="info-badge" data-topic="network_preset" title="Clique para ver explicação teórica e exemplos">i</span></span>
+            </div>
+            <div class="form-row">
+              <label class="form-label" for="network-preset-select">Arquitetura Pré-Definida: <span class="info-badge" data-topic="network_preset" title="Clique para ver explicação teórica e exemplos">i</span></label>
+              <select id="network-preset-select" class="select-control" style="width: 58%;">
+                <option value="mlp">MLP Clássico (Tanh)</option>
+                <option value="bottleneck">Gargalo / Compressão (Bottleneck)</option>
+                <option value="diamond">Diamante / Expansão (Diamond)</option>
+                <option value="resnet">ResNet (Skip-Connections)</option>
+                <option value="gru">Célula Recorrente GRU (Memória)</option>
+                <option value="siren">SIREN (Ativação Seno)</option>
+                <option value="linear">Linear (Sem Não-Linearidade)</option>
+              </select>
+            </div>
+            <p id="preset-description" style="font-size: 11px; color: var(--text-muted); margin-top: 6px; font-style: italic;">
+              Topologia padrão de controlo contínuo. Tanh oferece saturação suave de torques.
+            </p>
+          </div>
+
+          <!-- Synaptic Activation Canvas -->
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Diagrama Sináptico Pulsante <span class="info-badge" data-topic="synaptic_diagram" title="Clique para ver explicação teórica e conexões neurais">i</span></span>
+              <span style="font-size: 10px; color: var(--accent-cyan);">Ao Vivo</span>
+            </div>
+            <div id="synaptic-canvas-container">
+              <canvas id="synaptic-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Sensor Pipeline Section -->
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Pipeline de Sensores (I/O) <span class="info-badge" data-topic="sensor_pipeline" title="Clique para ver explicação teórica e exemplos">i</span></span>
+            </div>
+
+            <div class="form-row">
+              <label class="form-label">
+                <input type="checkbox" id="sensor-angles" checked> Ângulos Diretos (&theta;, &alpha;) <span class="info-badge" data-topic="sensor_angles" title="Clique para ver explicação teórica e exemplos">i</span>
+              </label>
+              <label class="form-label">
+                <input type="checkbox" id="sensor-trig" checked> Sen/Cos (Trig) <span class="info-badge" data-topic="sensor_trig" title="Clique para ver explicação teórica e exemplos">i</span>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label class="form-label">
+                <input type="checkbox" id="sensor-vels" checked> Velocidades Angulares (&omega;) <span class="info-badge" data-topic="sensor_vels" title="Clique para ver explicação teórica e exemplos">i</span>
+              </label>
+            </div>
+
+            <div class="form-row" style="margin-top: 8px;">
+              <span class="form-label">Ruído de Sensor (&sigma;): <span class="info-badge" data-topic="sensor_noise" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="sensor-noise" min="0" max="0.1" step="0.005" value="0">
+                <span id="sensor-noise-val" class="form-val">0.000</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Encoder Ótico: <span class="info-badge" data-topic="sensor_quantization" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <select id="sensor-quantization" class="select-control" style="width: 58%;">
+                <option value="0">Contínuo (Ideal)</option>
+                <option value="8">8-bit (256 pulsos/volta)</option>
+                <option value="10">10-bit (1024 pulsos/volta)</option>
+                <option value="12">12-bit (4096 pulsos/volta)</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Latência / Atraso: <span class="info-badge" data-topic="sensor_latency" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="sensor-latency" min="0" max="50" step="5" value="0">
+                <span id="sensor-latency-val" class="form-val">0 ms</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dynamic Layer Stack Builder -->
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Camadas da Rede <span class="info-badge" data-topic="layer_stack" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <button id="btn-add-layer" class="btn" style="padding: 3px 8px; font-size: 11px;">+ Camada</button>
+            </div>
+            <div id="layers-list"></div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Evolution -->
+        <div id="tab-evolution" class="tab-content">
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Algoritmo & População <span class="info-badge" data-topic="evo_algo" title="Clique para ver explicação teórica e exemplos">i</span></span>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Tempo por Geração: <span class="info-badge" data-topic="gen_time" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="evo-gen-time" min="1.0" max="30.0" step="0.5" value="6.0">
+                <span id="evo-gen-time-val" class="form-val">6.0 s</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Estratégia: <span class="info-badge" data-topic="evo_algo" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <select id="evo-algo" class="select-control" style="width: 58%;">
+                <option value="ga">GA Clássico (Genético Padrão)</option>
+                <option value="openai_es">OpenAI-ES (Evolução Natural)</option>
+                <option value="neat">NEAT (Topologia Dinâmica)</option>
+                <option value="island">Modelo de Ilhas (Anel Paralelo)</option>
+                <option value="map_elites">MAP-Elites (Grelha Comportamental)</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Tamanho da População: <span class="info-badge" data-topic="evo_pop_size" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="evo-pop-size" min="20" max="300" step="10" value="100">
+                <span id="evo-pop-val" class="form-val">100</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Elitismo (Top N): <span class="info-badge" data-topic="evo_elite_count" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="evo-elite-count" min="1" max="10" step="1" value="3">
+                <span id="evo-elite-val" class="form-val">3</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Operadores Genéticos <span class="info-badge" data-topic="evo_operators" title="Clique para ver explicação teórica e exemplos">i</span></span>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Seleção: <span class="info-badge" data-topic="evo_selection" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <select id="evo-selection" class="select-control" style="width: 58%;">
+                <option value="tournament">Torneio (k=3)</option>
+                <option value="roulette">Roleta (Fitness Proporcional)</option>
+                <option value="rank">Ranking Linear</option>
+                <option value="truncation">Truncamento (Top 20%)</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Crossover: <span class="info-badge" data-topic="evo_crossover" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <select id="evo-crossover" class="select-control" style="width: 58%;">
+                <option value="blx_alpha">BLX-&alpha; (Blend Crossover)</option>
+                <option value="arithmetic">Aritmético (Linear Interp)</option>
+                <option value="single_point">Ponto Único</option>
+                <option value="uniform">Uniforme (50% Gene)</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Taxa Crossover: <span class="info-badge" data-topic="evo_cross_rate" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="evo-cross-rate" min="0.1" max="1.0" step="0.05" value="0.8">
+                <span id="evo-cross-rate-val" class="form-val">0.80</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Mutação: <span class="info-badge" data-topic="evo_mutation" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <select id="evo-mutation" class="select-control" style="width: 58%;">
+                <option value="cauchy">Cauchy (Cauda Pesada / Escape)</option>
+                <option value="adaptive_gaussian">Gaussiana Adaptativa</option>
+                <option value="polynomial">Polinomial (Deb)</option>
+                <option value="uniform">Uniforme</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Taxa de Mutação: <span class="info-badge" data-topic="evo_mut_rate" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="evo-mut-rate" min="0.01" max="0.5" step="0.01" value="0.1">
+                <span id="evo-mut-rate-val" class="form-val">0.10</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Força da Mutação (&sigma;): <span class="info-badge" data-topic="evo_mut_strength" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="evo-mut-strength" min="0.02" max="1.0" step="0.02" value="0.2">
+                <span id="evo-mut-strength-val" class="form-val">0.20</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fitness Function Weights -->
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Pesos de Fitness (Recompensas) <span class="info-badge" data-topic="fitness_weights" title="Clique para ver explicação teórica e exemplos">i</span></span>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Equilíbrio Vertical: <span class="info-badge" data-topic="fit_upright" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="fit-upright" min="0.5" max="5.0" step="0.1" value="1.0">
+                <span id="fit-upright-val" class="form-val">1.0</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Bónus Topo (&lt;15&deg;): <span class="info-badge" data-topic="fit_bonus" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="fit-bonus" min="0" max="5.0" step="0.2" value="2.0">
+                <span id="fit-bonus-val" class="form-val">2.0</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Penalização Voltagem: <span class="info-badge" data-topic="fit_volt_pen" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="fit-volt-pen" min="0" max="0.2" step="0.005" value="0.05">
+                <span id="fit-volt-pen-val" class="form-val">0.050</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Penalização Trepidação (Jerk): <span class="info-badge" data-topic="fit_jerk_pen" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="fit-jerk-pen" min="0" max="0.1" step="0.005" value="0.01">
+                <span id="fit-jerk-pen-val" class="form-val">0.010</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Centralização Braço (&theta;): <span class="info-badge" data-topic="fit_center_pen" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="fit-center-pen" min="0" max="0.5" step="0.02" value="0.1">
+                <span id="fit-center-pen-val" class="form-val">0.10</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Physics Lab -->
+        <div id="tab-physics" class="tab-content">
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Materiais & Geometria <span class="info-badge" data-topic="mat_pendulum" title="Clique para ver explicação teórica e exemplos">i</span></span>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Material da Haste: <span class="info-badge" data-topic="mat_pendulum" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <select id="mat-pendulum" class="select-control" style="width: 58%;">
+                <option value="steel">Aço Inox (7850 kg/m³)</option>
+                <option value="aluminum">Alumínio 6061 (2700 kg/m³)</option>
+                <option value="brass">Latão Naval (8500 kg/m³)</option>
+                <option value="carbon_fiber">Fibra de Carbono (1600 kg/m³)</option>
+                <option value="wood">Madeira (720 kg/m³)</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Comprimento Haste (m): <span class="info-badge" data-topic="phy_pend_len" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="phy-pend-len" min="0.15" max="0.5" step="0.01" value="0.337">
+                <span id="phy-pend-len-val" class="form-val">0.337 m</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Raio da Haste (mm): <span class="info-badge" data-topic="phy_pend_rad" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="phy-pend-rad" min="2" max="10" step="0.5" value="5">
+                <span id="phy-pend-rad-val" class="form-val">5.0 mm</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Comprimento Braço (m): <span class="info-badge" data-topic="phy_arm_len" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="phy-arm-len" min="0.1" max="0.35" step="0.01" value="0.216">
+                <span id="phy-arm-len-val" class="form-val">0.216 m</span>
+              </div>
+            </div>
+
+            <!-- Calculated Physics Readout -->
+            <div style="background: rgba(0, 0, 0, 0.3); padding: 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 11px; margin-top: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-weight: 600; color: var(--text-muted);">Métricas Físicas Calculadas:</span>
+                <span class="info-badge" data-topic="calc_physics" title="Clique para ver explicação teórica e fórmulas">i</span>
+              </div>
+              <div>Massa Haste (m_p): <span id="calc-pend-mass" style="color: var(--accent-cyan);">0.127 kg</span></div>
+              <div>Inércia Haste (J_p): <span id="calc-pend-inertia" style="color: var(--accent-emerald);">0.00120 kg·m²</span></div>
+              <div>Centro de Massa (l_p): <span id="calc-pend-com" style="color: var(--accent-gold);">0.1685 m</span></div>
+            </div>
+          </div>
+
+          <!-- DC Motor Parameters -->
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Atuador (Motor DC) <span class="info-badge" data-topic="dc_motor" title="Clique para ver explicação teórica e exemplos">i</span></span>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Tensão Máxima (V): <span class="info-badge" data-topic="motor_max_v" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="motor-max-v" min="6" max="24" step="1" value="12">
+                <span id="motor-max-v-val" class="form-val">12 V</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Resistência Armadura (Ω): <span class="info-badge" data-topic="motor_res" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="motor-res" min="2.0" max="15.0" step="0.2" value="8.4">
+                <span id="motor-res-val" class="form-val">8.4 Ω</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Constante Back-EMF (Kb): <span class="info-badge" data-topic="motor_kb" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="motor-kb" min="0.01" max="0.1" step="0.005" value="0.042">
+                <span id="motor-kb-val" class="form-val">0.042</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Saturação de Torque (N·m): <span class="info-badge" data-topic="motor_tau_max" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="motor-tau-max" min="0.5" max="3.0" step="0.1" value="1.5">
+                <span id="motor-tau-max-val" class="form-val">1.5 N·m</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Friction Parameters -->
+          <div class="panel-section">
+            <div class="panel-header">
+              <span class="panel-title">Atrito & Rolamentos <span class="info-badge" data-topic="friction_model" title="Clique para ver explicação teórica e exemplos">i</span></span>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Atrito Viscoso (b): <span class="info-badge" data-topic="fric_viscous" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="fric-viscous" min="0.0001" max="0.01" step="0.0005" value="0.0015">
+                <span id="fric-viscous-val" class="form-val">0.0015</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <span class="form-label">Atrito de Coulomb (Seco): <span class="info-badge" data-topic="fric_coulomb" title="Clique para ver explicação teórica e exemplos">i</span></span>
+              <div class="form-slider-wrap">
+                <input type="range" id="fric-coulomb" min="0.0001" max="0.01" step="0.0005" value="0.002">
+                <span id="fric-coulomb-val" class="form-val">0.0020</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Guided Missions -->
+        <div id="tab-missions" class="tab-content">
+          <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-muted);">
+            Trilha pedagógica com desafios guiados para aprender de forma prática as nuances de IA e controlo.
+          </div>
+          <div id="missions-list"></div>
+        </div>
+      </aside>
+
+      <!-- 3D Viewport -->
+      <main id="viewport-container">
+        <!-- Telemetry HUD Overlay -->
+        <div class="hud-overlay">
+          <div class="hud-card">
+            <div class="hud-metric-row">
+              <span class="hud-metric-label">Geração:</span>
+              <span id="hud-generation" class="hud-metric-value highlight-cyan">0</span>
+            </div>
+            <div class="hud-metric-row">
+              <span class="hud-metric-label">Progresso Geração:</span>
+              <span id="hud-gen-progress" class="hud-metric-value highlight-cyan">0.0 / 6.0 s</span>
+            </div>
+            <div class="hud-metric-row">
+              <span class="hud-metric-label">Melhor Fitness:</span>
+              <span id="hud-fitness" class="hud-metric-value highlight-green">0.0</span>
+            </div>
+            <div class="hud-metric-row">
+              <span class="hud-metric-label">Tempo Equilibrado:</span>
+              <span id="hud-balance-time" class="hud-metric-value highlight-gold">0.00 s</span>
+            </div>
+            <div class="hud-metric-row">
+              <span class="hud-metric-label">Tensão Motor (V):</span>
+              <span id="hud-voltage" class="hud-metric-value">0.0 V</span>
+            </div>
+            <div class="hud-metric-row">
+              <span class="hud-metric-label">Taxa Física:</span>
+              <span id="hud-physics-hz" class="hud-metric-value">200 Hz</span>
+            </div>
+            <div class="hud-metric-row">
+              <span class="hud-metric-label">FPS Render:</span>
+              <span id="hud-fps" class="hud-metric-value">60 FPS</span>
+            </div>
+
+            <!-- Real-time Phase Portrait Plot (alpha vs alphaDot) -->
+            <div style="margin-top: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Espaço de Estados (&alpha; vs &omega;)</span>
+                <span class="info-badge" data-topic="phase_portrait" title="Clique para ver explicação teórica do Retrato de Fase">i</span>
+              </div>
+              <canvas id="phase-portrait-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Theoretical Inspector Drawer -->
+      <div id="inspector-drawer">
+        <div class="inspector-header">
+          <span id="inspector-title" class="inspector-title">Conceito Teórico</span>
+          <button id="inspector-close" class="inspector-close" title="Fechar Inspetor">✕</button>
+        </div>
+        <div id="inspector-formula" class="inspector-formula"></div>
+        <div class="inspector-section-label">💡 Conceito Simples:</div>
+        <div id="inspector-concept" class="inspector-body"></div>
+        <div class="inspector-section-label">🔢 Exemplos de Valores a Colocar:</div>
+        <div id="inspector-examples" class="inspector-box-examples"></div>
+        <div class="inspector-section-label">🌐 O Que Esperar no Geral:</div>
+        <div id="inspector-general" class="inspector-box-general"></div>
+        <div class="inspector-section-label">🎯 Nesta Simulação em Específico:</div>
+        <div id="inspector-simulation" class="inspector-box-sim"></div>
+        <div id="inspector-tip" class="inspector-tip"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
